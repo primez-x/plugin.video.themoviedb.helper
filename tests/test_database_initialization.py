@@ -93,6 +93,13 @@ class DatabaseInitializationTests(unittest.TestCase):
         self.database._db_file = self.database_path
         self.database._sc_name = 'test_database'
 
+    def test_set_pragmas_uses_conservative_mmap_size(self):
+        with closing(ORIGINAL_CONNECT(self.database_path)) as connection:
+            self.database.set_pragmas(connection)
+            mmap_size = connection.execute('PRAGMA mmap_size').fetchone()[0]
+
+        self.assertEqual(mmap_size, 0)
+
     def test_create_database_closes_resources_and_commits_schema(self):
         factory = ConnectionFactory()
 
