@@ -73,7 +73,10 @@ class DatabaseCore:
             cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.execute("PRAGMA mmap_size=268435456")
+            # CoreELEC runs Kodi's Python process as ARM32.  A 256 MiB mmap
+            # per database connection exhausts its address space under hub
+            # preloading; use SQLite's conservative, unmapped mode instead.
+            cursor.execute("PRAGMA mmap_size=0")
         finally:
             cursor.close()
         return connection
