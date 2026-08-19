@@ -93,6 +93,24 @@ class DatabaseInitializationTests(unittest.TestCase):
         self.database._db_file = self.database_path
         self.database._sc_name = 'test_database'
 
+    def test_set_pragmas_requests_16_mib_mmap(self):
+        statements = []
+
+        with closing(ORIGINAL_CONNECT(self.database_path)) as connection:
+            connection.set_trace_callback(statements.append)
+            self.database.set_pragmas(connection)
+
+        self.assertIn('PRAGMA mmap_size=16777216', statements)
+
+    def test_set_pragmas_enables_bounded_mmap_when_supported(self):
+        with closing(ORIGINAL_CONNECT(self.database_path)) as connection:
+            self.database.set_pragmas(connection)
+            mmap_size = connection.execute('PRAGMA mmap_size').fetchone()[0]
+
+        if mmap_size == 0:
+            self.skipTest('SQLite mmap is disabled in this build')
+        self.assertLessEqual(mmap_size, 16 * 1024 * 1024)
+
     def test_create_database_closes_resources_and_commits_schema(self):
         factory = ConnectionFactory()
 
