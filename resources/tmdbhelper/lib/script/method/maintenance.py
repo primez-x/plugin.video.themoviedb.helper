@@ -36,10 +36,12 @@ class DatabaseMaintenance:
         from tmdbhelper.lib.addon.tmdate import set_timestamp
         self.next_delete = set_timestamp(self.delete_interval)
 
+    @property
     def is_next_vacuum(self):
         from tmdbhelper.lib.addon.tmdate import get_timestamp
         return bool(not get_timestamp(self.next_vacuum))
 
+    @property
     def is_next_delete(self):
         from tmdbhelper.lib.addon.tmdate import get_timestamp
         return bool(not get_timestamp(self.next_delete))
@@ -61,6 +63,13 @@ class DatabaseMaintenance:
     def vacuum(self, force=False):
         if not force and not self.is_next_vacuum:
             return
+        # p3i: skip vacuum while Kodi is playing — VACUUM holds the SQLite
+        # file lock and fsyncs a full DB-sized temp copy, which can stall
+        # the video pipeline thread long enough to drop frames on UHD.
+        if not force:
+            import xbmc
+            if xbmc.Player().isPlaying():
+                return
         self.set_next_vacuum()
         from tmdbhelper.lib.addon.logger import TimerFunc
         from tmdbhelper.lib.items.database.database import ItemDetailsDatabase
@@ -71,7 +80,7 @@ class DatabaseMaintenance:
 
     def delete_legacy_folders(self, force=False):
         """ Once-off routine to delete old unused database versions to avoid wasting disk space """
-        if not force and not self.is_next_vacuum:
+        if not force and not self.is_next_delete:
             return
         self.set_next_delete()
         from tmdbhelper.lib.files.futils import delete_folder
