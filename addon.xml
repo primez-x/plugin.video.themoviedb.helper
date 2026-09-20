@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.16.3.1"
+version="6.17.3.1"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,8 +46,8 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.16.3.1
-- Upstream sync and MDbList improvements.
+  <news>version 6.17.3.1
+- Port upstream TMDb artwork-type fix for the images API.
 - Retain the CoreELEC SQLite mmap cap for ARM32 stability.</news>
 </extension>
 </addon>
