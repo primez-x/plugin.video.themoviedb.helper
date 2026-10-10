@@ -59,14 +59,7 @@ class GetTraktStatsRequest:
 
     @cached_property
     def response_json(self):
-        from json import JSONDecodeError
-        response = self.trakt_api.get_response(self.url)
-        try:
-            return response.json()
-        except AttributeError:
-            return
-        except JSONDecodeError:
-            return
+        return self.trakt_api.get_response_json(self.url)  # Primez: Safe helper returns {} for missing or bad json
 
     @cached_property
     def values(self):
@@ -77,6 +70,8 @@ class GetTraktStatsRequest:
 
     @cached_property
     def items(self):
+        if not isinstance(self.response_json, dict):  # Primez: Guard against 2xx list or odd json killing cron thread
+            return []
         return [
             {
                 'name': item_k,
@@ -84,6 +79,7 @@ class GetTraktStatsRequest:
                 'stat': item_v,
             }
             for base_k, base_v in self.response_json.items()
+            if isinstance(base_v, dict)  # Primez
             for item_k, item_v in base_v.items()
             if isinstance(item_v, int)
-        ] if self.response_json else []
+        ]

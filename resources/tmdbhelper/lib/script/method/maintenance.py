@@ -13,6 +13,8 @@ class DatabaseMaintenance:
 
     allow_during_video_playback = False
 
+    vacuum_idle_condition = 'System.IdleTime(600) | System.ScreenSaverActive'  # Primez: Only vacuum when user is idle
+
     legacy_databases_folders = (
         'database',
         'database_v2',
@@ -56,10 +58,18 @@ class DatabaseMaintenance:
         return xbmc.Player().isPlayingVideo()
 
     @property
+    def is_blocked_by_activity(self):
+        """ Primez: Block until user is idle. Next vacuum time is only set after running so blocked checks just postpone """
+        import xbmc
+        return not xbmc.getCondVisibility(self.vacuum_idle_condition)
+
+    @property
     def is_vacuum_allowed(self):
         if self.is_blocked_by_playback:
             return False
-        return self.is_next_vacuum
+        if not self.is_next_vacuum:  # Primez: Check timestamp before idle condition
+            return False
+        return not self.is_blocked_by_activity
 
     @property
     def is_delete_allowed(self):

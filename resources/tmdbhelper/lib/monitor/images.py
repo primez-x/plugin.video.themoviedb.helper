@@ -1,5 +1,7 @@
 import os
 import io
+import re
+import contextlib
 import xbmcvfs
 import colorsys
 import hashlib
@@ -14,6 +16,10 @@ import urllib.request as urllib
 from tmdbhelper.lib.addon.logger import kodi_log
 
 CROPIMAGE_SOURCE = "Art(artist.clearlogo)|Art(tvshow.clearlogo)|Art(clearlogo)"
+
+# Primez: Blur input only needs a small rendition so download w780 instead of TMDb original (cache key stays on original url)
+BLUR_SOURCE_WIDTH = 780
+BLUR_SOURCE_TMDB_RE = re.compile(r'^(https?://image\.tmdb\.org/t/p/)(?:original|w(\d+))(/.+)$')
 
 ARTWORK_LOOKUP_TABLE = {
     'poster': ['Art(tvshow.poster)', 'Art(poster)', 'Art(thumb)'],
@@ -35,17 +41,33 @@ def lazyimport_pil(func):
     return wrapper
 
 
+def get_blur_download_url(source, blur_size=480):
+    """ Primez: Return smaller TMDb rendition url to download for blur input or None to use source """
+    if not source or blur_size > BLUR_SOURCE_WIDTH:
+        return
+    match = BLUR_SOURCE_TMDB_RE.match(source)
+    if not match:
+        return
+    if match.group(2) and int(match.group(2)) <= BLUR_SOURCE_WIDTH:
+        return
+    return f'{match.group(1)}w{BLUR_SOURCE_WIDTH}{match.group(3)}'
+
+
 def md5hash(value):
     value = str(value).encode(errors='surrogatepass')  # Use surrogatepass to avoid emoji in filenames raising exceptions for utf-8
     return hashlib.md5(value).hexdigest()
 
 
 def _imageopen(image):
+    with xbmcvfs.File(image, 'rb') as f:
+        image_bytes = f.readBytes()
+    return _imageopen_bytes(image_bytes)
+
+
+def _imageopen_bytes(image_bytes):
     global Image
     if Image is None:
         from PIL import Image
-    with xbmcvfs.File(image, 'rb') as f:
-        image_bytes = f.readBytes()
     return Image.open(io.BytesIO(image_bytes))
 
 
@@ -78,7 +100,7 @@ def _add_corners(image, destination, radius=40, aa_factor=4):
     alpha.paste(circle.crop((radius, radius, diameter, diameter)), (w - radius, h - radius))
     image.putalpha(alpha)
 
-    _saveimage(image, destination)
+    _saveimage(image, destination, 'PNG', compress_level=1)  # Primez: Needs alpha so keep PNG but use fast compression
     image.close()
 
 
@@ -108,7 +130,7 @@ def _add_tile(image, destination):
     image_flip = image_flip.transpose(Image.FLIP_TOP_BOTTOM)
     image_tile.paste(image_flip, (0, 0))
 
-    _saveimage(image_tile, destination)
+    _saveimage(image_tile, destination, 'JPEG', quality=85)  # Primez: No alpha so JPEG is much faster to encode
 
     image_flip.close()
     image_tile.close()
@@ -121,8 +143,19 @@ def _closeimage(image, targetfile=None):
     xbmcvfs.delete(targetfile)
 
 
-def _openimage(image, targetpath, filename):
-    """ Open image helper with thanks to sualfred """
+def _imageread(image):
+    """ Primez: Read image bytes directly from vfs path instead of copying to a temp file first """
+    try:
+        with xbmcvfs.File(image) as f:
+            return f.readBytes()
+    except Exception:
+        return b''  # Fallback to temp file copy
+
+
+def _openimage(image, targetpath, filename, download=None):
+    """ Open image helper with thanks to sualfred
+    Primez: Optional download url is fetched instead of image when not in Kodi texture cache
+    """
     # some paths require unquoting to get a valid cached thumb hash
     cached_image_path = urllib.unquote(image.replace('image://', ''))
     if cached_image_path.endswith('/'):
@@ -162,6 +195,14 @@ def _openimage(image, targetpath, filename):
                     return ('', None)
 
             else:
+                if download:  # Primez: Try smaller rendition first and fallback to image if it fails
+                    with contextlib.suppress(Exception):
+                        return (_imageopen_bytes(_imageread(download)), None)
+
+                image_bytes = _imageread(image)  # Primez: Direct read and only fallback to temp file copy if empty
+                if image_bytes:
+                    return (_imageopen_bytes(image_bytes), None)
+
                 targetfile = os.path.join(targetpath, f'temp_{filename}')  # Use temp file to avoid Kodi writing early
                 if not xbmcvfs.exists(targetfile):
                     xbmcvfs.copy(image, targetfile)
@@ -177,13 +218,14 @@ def _openimage(image, targetpath, filename):
     return ('', None)
 
 
-def _saveimage(image, targetfile):
+def _saveimage(image, targetfile, fmt='PNG', **kwargs):
     """ Save image object to disk
     Uses flush() and os.fsync() to ensure file is written to disk before continuing
     Used to prevent Kodi from attempting to cache the image before writing is complete
+    Primez: Optional format and encoder kwargs
     """
     with xbmcvfs.File(targetfile, 'wb') as f:
-        image.save(f, 'PNG')
+        image.save(f, fmt, **kwargs)
         # f.flush()
         # os.fsync(f)
 
@@ -274,11 +316,11 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
         tile_destination = os.path.join(self.save_path, f'{filename}-tiled.jpg')
         try:
             if not xbmcvfs.exists(destination) or (diffuse_destination and not xbmcvfs.exists(diffuse_destination)):  # os.utime(destination, None)
-                img, targetfile = _openimage(source, self.save_path, filename)
+                img, targetfile = _openimage(source, self.save_path, filename, download=get_blur_download_url(source, self.blur_size))
                 img.thumbnail((self.blur_size, self.blur_size))
                 img = img.convert('RGB')
                 img = img.filter(ImageFilter.GaussianBlur(self.radius))
-                _saveimage(img, destination)
+                _saveimage(img, destination, 'JPEG', quality=85)  # Primez: No alpha so JPEG is much faster to encode
 
                 if diffuse_destination:
                     _add_corners(img, diffuse_destination, radius=self.corner)
@@ -533,16 +575,14 @@ class ImageManipulations(WindowPropertySetter):
             if img_get.artwork_fallback:
                 return img_get.artwork_fallback
 
-    def get_image_manipulations(self, use_winprops=False, built_artwork=None, allow_list=('crop', 'blur', 'desaturate', 'colors', )):
+    def get_image_manipulations(self, use_winprops=False, built_artwork=None, allow_list=('crop', 'blur', 'desaturate', 'colors', ), is_current=None, on_output=None):
+        """
+        Primez: Optional is_current() callback stops before stale work and stale output
+        Optional on_output(images) callback receives each manipulation's images as soon as ready
+        """
         images = {}
 
-        _manipulations = (
-            {'method': 'crop',
-                'active': lambda: get_condvisibility("Skin.HasSetting(TMDbHelper.EnableCrop)"),
-                'images': lambda: self.get_artwork(
-                    source=CROPIMAGE_SOURCE,
-                    build_fallback=True,
-                    built_artwork=built_artwork)},
+        _manipulations = (  # Primez: Blur first as background is most visible
             {'method': 'blur',
                 'active': lambda: get_condvisibility("Skin.HasSetting(TMDbHelper.EnableBlur)"),
                 'images': lambda: self.get_artwork(
@@ -550,6 +590,12 @@ class ImageManipulations(WindowPropertySetter):
                     build_fallback=True,
                     built_artwork=built_artwork)
                 or self.get_property('Blur.Fallback')},
+            {'method': 'crop',
+                'active': lambda: get_condvisibility("Skin.HasSetting(TMDbHelper.EnableCrop)"),
+                'images': lambda: self.get_artwork(
+                    source=CROPIMAGE_SOURCE,
+                    build_fallback=True,
+                    built_artwork=built_artwork)},
             {'method': 'desaturate',
                 'active': lambda: get_condvisibility("Skin.HasSetting(TMDbHelper.EnableDesaturate)"),
                 'images': lambda: self.get_artwork(
@@ -570,13 +616,21 @@ class ImageManipulations(WindowPropertySetter):
                 continue
             if not i['active']():
                 continue
+            if is_current and not is_current():  # Primez: Item changed so dont start stale work
+                break
             imgfunc = ImageFunctions(method=i['method'], is_thread=False, artwork=i['images']())
 
             output = imgfunc.func(imgfunc.image)
             images[f'{i["method"]}image'] = output
             images[f'{i["method"]}image.original'] = imgfunc.image
 
+            if is_current and not is_current():  # Primez: Item changed so dont set stale output
+                break
+
             if use_winprops:
                 imgfunc.set_properties(output)
+
+            if on_output:  # Primez: Set each image as soon as it is ready
+                on_output({f'{i["method"]}image': output, f'{i["method"]}image.original': imgfunc.image})
 
         return images

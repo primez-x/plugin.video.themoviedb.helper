@@ -57,6 +57,9 @@ class ImagesMonitor(SafeThread, ListItemInfoGetter, ImageManipulations, Poller):
 
     _cond_current_window_images = "Skin.HasSetting(TMDbHelper.EnableCurrentWindowImages)"
 
+    _settle_ticks = 2  # Primez: Item must be unchanged for this many consecutive polls (~0.4s) before processing
+    _rotating_sources = ('Blur.SourceImage', 'Desaturate.SourceImage', 'Colors.SourceImage', )  # Primez: {x} rotation
+
     def __init__(self, parent):
         SafeThread.__init__(self)
         self.reset_current_item()
@@ -65,7 +68,9 @@ class ImagesMonitor(SafeThread, ListItemInfoGetter, ImageManipulations, Poller):
         self.exit = False
         self.update_monitor = parent.update_monitor
         self.remote_artwork = RemoteArtwork()
-        self._allow_on_scroll = True  # Allow updating while scrolling
+        self._allow_on_scroll = False  # Primez: Dont update while scrolling (was True)
+        self._idle_refresh = False  # Primez
+        self._idle_count = 0  # Primez
         self._parent = parent
         self.properties = set()
 
@@ -76,6 +81,8 @@ class ImagesMonitor(SafeThread, ListItemInfoGetter, ImageManipulations, Poller):
         self.pre_window = 1
         self.cur_base_window = 0
         self.pre_base_window = 1
+        self._settle_key = None  # Primez
+        self._settle_count = 0  # Primez
 
     @property
     def is_artwork_disabled(self):
@@ -111,10 +118,37 @@ class ImagesMonitor(SafeThread, ListItemInfoGetter, ImageManipulations, Poller):
         return False
     """
 
+    def is_settled(self):
+        """ Primez: Only process an item once it is unchanged for _settle_ticks consecutive polls """
+        settle_key = (self.get_cur_item(), self.get_cur_window())
+        if settle_key != self._settle_key:
+            self._settle_key = settle_key
+            self._settle_count = 0
+        elif self._settle_count < self._settle_ticks:
+            self._settle_count += 1
+        return self._settle_count >= self._settle_ticks
+
+    def is_current_item(self):
+        """ Primez: Re-read identifier from Kodi to check item is still current after slow work """
+        return self._item.get_identifier() == self.pre_item
+
+    @property
+    def is_idle_image_refresh(self):
+        """ Primez: Only redo images on idle refresh for rotating {x} sources or if an image was missing """
+        if any('{x}' in (self.get_property(i) or '') for i in self._rotating_sources):
+            return True
+        if self._idle_count > 1:  # Only retry missing images once in case Kodi was slow to load ListItem.Art()
+            return False
+        return not all(v for k, v in (self.cur_blurcrop_properties or {}).items() if k.endswith('image'))
+
     def is_next_refresh(self):
 
         # Check we can actually get something from underlying item
         if self.is_same_base_window(update=True) and not self.get_cur_info():
+            return False
+
+        # Primez: Wait for item to settle before processing
+        if not self.is_settled():
             return False
 
         # Check if the item has changed before retrieving details again
@@ -128,6 +162,7 @@ class ImagesMonitor(SafeThread, ListItemInfoGetter, ImageManipulations, Poller):
 
         # Check refresh time and refresh if it has expired
         if not get_timestamp(self._next_refresh):
+            self._idle_refresh = True  # Primez
             return True
 
         return False
@@ -149,13 +184,21 @@ class ImagesMonitor(SafeThread, ListItemInfoGetter, ImageManipulations, Poller):
             return
         """
 
-        if not forced and not self.is_next_refresh():
+        if forced:  # Primez: Forced run processes current item so mark it as seen to avoid image thread redoing it
+            self.is_same_item(update=True)
+            self.is_same_window(update=True)
+        elif not self.is_next_refresh():
             return
 
+        is_idle_refresh, self._idle_refresh = self._idle_refresh, False  # Primez
+        self._idle_count = self._idle_count + 1 if is_idle_refresh else 0  # Primez
         self._this_refresh = 0
         self._next_refresh = 0
 
-        if not self.update_properties(self.blurcrop_properties, use_current_window=self.is_current_window_images):
+        # Primez: Images are set as each one is ready via blurcrop_properties so just check item is still current
+        if not is_idle_refresh or self.is_idle_image_refresh:
+            self.blurcrop_properties
+        if not self.is_current_item():
             return
 
         if not self.update_properties(self.baseitem_properties if not self.is_service_disabled else {}):
@@ -170,12 +213,18 @@ class ImagesMonitor(SafeThread, ListItemInfoGetter, ImageManipulations, Poller):
         self.cur_blurcrop_properties = self.get_image_manipulations(
             use_winprops=False,
             built_artwork=self.remote_artwork.get(self.pre_item),
-            allow_list=self._allow_list
+            allow_list=self._allow_list,
+            is_current=self.is_current_item,  # Primez
+            on_output=self.update_image_properties,  # Primez
         ) if not self.is_artwork_disabled else {}
         return self.cur_blurcrop_properties
 
+    def update_image_properties(self, infoproperties):
+        """ Primez: Set each image's properties as soon as it is ready """
+        return self.update_properties(infoproperties, use_current_window=self.is_current_window_images)
+
     def update_properties(self, infoproperties, use_current_window=False):
-        if not self.is_same_item():
+        if not self.is_current_item():  # Primez: Fresh check as get_cur_item() returns stored identifier
             return False
         for k, v in infoproperties.items():
             if use_current_window:

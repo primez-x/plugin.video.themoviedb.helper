@@ -249,18 +249,30 @@ class CommonMonitorFunctions(WindowPropertySetter, CommonMonitorDetails):
         self.cur_ratings_item_instance = None
         self.pre_ratings_item_instance = None
         self.property_prefix = 'ListItem'
+        self.last_set_properties = {}  # Primez: {window_id: {key: value}} last values set by this monitor
         super().__init__()
+
+    @property
+    def last_set_window_properties(self):
+        """ Primez: Last values this monitor set on its window """
+        return self.last_set_properties.setdefault(self.window_id, {})
 
     def clear_property(self, key):
         key = f'{self.property_prefix}.{key}'
+        self.last_set_window_properties.pop(key, None)  # Primez
         self.get_property(key, clear_property=True)
 
     def set_property(self, key, value):
         key = f'{self.property_prefix}.{key}'
         if value is None:
+            self.last_set_window_properties.pop(key, None)  # Primez
             self.get_property(key, clear_property=True)
             return
-        self.get_property(key, set_property=f'{value}')
+        value = f'{value}'
+        if self.last_set_window_properties.get(key) == value:  # Primez: Skip setProperty if unchanged
+            return
+        self.last_set_window_properties[key] = value
+        self.get_property(key, set_property=value)
 
     @kodi_try_except('lib.monitor.common set_properties')
     def set_properties(self, item):
@@ -282,6 +294,7 @@ class CommonMonitorFunctions(WindowPropertySetter, CommonMonitorDetails):
 
     @kodi_try_except('lib.monitor.common clear_properties')
     def clear_properties(self):
+        self.last_set_properties.clear()  # Primez: Forget last values whenever all properties are cleared
         if self.cur_item_instance:
             self.cur_item_instance.clear_properties()
             self.cur_item_instance = None

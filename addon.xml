@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.4"
+version="6.17.3.5"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,12 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.4
+  <news>version 6.17.3.5
+- Faster backgrounds on low-power devices: wait until focus settles before blurring, blur a 780 px copy instead of the full-size original, write JPEG instead of slow PNG, and show the blur before the logo crop.
+- Fix a race that could blank the blurred background, and cut idle polling and unchanged property writes.
+- Only vacuum the cache database while Kodi is idle; guard Trakt stats against unexpected responses.
+
+version 6.17.3.4
 - Enforce the Primez versioning rules in the publish checks; nothing in the add-on changes.
 
 version 6.17.3.3

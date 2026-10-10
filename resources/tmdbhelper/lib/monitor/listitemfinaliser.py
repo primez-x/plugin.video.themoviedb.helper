@@ -94,7 +94,10 @@ class ListItemMonitorFinaliser:
     def artwork(self):
         if not self.item.is_same_item:  # Dont bother getting if item changed before reached
             return
-        artwork = self.images_monitor.update_artwork(forced=True) or {}
+        with self.mutex_lock:  # Primez: Image thread holds same lock so dont process same temp files concurrently
+            if not self.item.is_same_item:  # Primez: Item may have changed while waiting for lock
+                return
+            artwork = self.images_monitor.update_artwork(forced=True) or {}
         if not self.item.is_same_item:  # Dont bother setting if item changed before retrieved
             return
         self.set_artwork(artwork)

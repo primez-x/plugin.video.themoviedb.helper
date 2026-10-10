@@ -9,7 +9,7 @@ class ListItemInfoGetter(BaseItemInfoGetter):
     # ==========
 
     def get_cur_item(self):
-        return self._item.get_identifier()
+        return self._item.identifier  # Primez: Use identifier already read by MonitorItemDetails.__init__ this tick
 
     def get_cur_info(self):
         """
