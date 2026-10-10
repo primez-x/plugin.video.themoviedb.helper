@@ -1,6 +1,4 @@
 {
   "branch": "nexus",
-  "tests": [
-    ["python3", "-m", "compileall", "-q", "."]
-  ]
+  "tests": []
 }

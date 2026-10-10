@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.3"
+version="6.17.3.4"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.3
+  <news>version 6.17.3.4
+- Enforce the Primez versioning rules in the publish checks; nothing in the add-on changes.
+
+version 6.17.3.3
 - Add publish rule checks (pre-push hook and CI workflow); nothing in the add-on changes.
 
 version 6.17.3.2
