@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.2"
+version="6.17.3.3"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.2
+  <news>version 6.17.3.3
+- Add publish rule checks (pre-push hook and CI workflow); nothing in the add-on changes.
+
+version 6.17.3.2
 - Port upstream TMDb artwork-type fix for the images API.
 - Handle empty Trakt stats responses without a traceback.
 - Retain the CoreELEC SQLite mmap cap for ARM32 stability.</news>

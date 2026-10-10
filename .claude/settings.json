@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push origin HEAD:nexus)",
+      "Bash(git push origin nexus)",
+      "Bash(git push -u origin nexus)",
+      "Bash(git push -u origin claude/*)",
+      "Bash(git push origin claude/*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git -C \"$CLAUDE_PROJECT_DIR\" config core.hooksPath .githooks"
+          }
+        ]
+      }
+    ]
+  }
+}
