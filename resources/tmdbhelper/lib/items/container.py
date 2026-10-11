@@ -258,6 +258,12 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         if self.params.get('tmdb_id'):
             return
 
+        # Primez: Lists with nothing to look up (e.g. popular, trending, discover) skip importing and opening the
+        # find-queries database; get_tmdb_id() returns None for them anyway
+        if not any(self.params.get(k) for k in ('imdb_id', 'tvdb_id', 'query', 'use_multisearch')):
+            self.params['tmdb_id'] = None
+            return
+
         self.params['tmdb_id'] = self.query_database.get_tmdb_id(**self.params)
 
     def get_items(self, **kwargs):

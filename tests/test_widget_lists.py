@@ -2,6 +2,7 @@
 Primez: Widget listing regressions.
 - Discover widgets must not send the volatile reload= token to TMDb or into the list cache name.
 - TMDb listitems must carry label and title (label, ListItem.Title and the info tag).
+- Lists with no id or query to look up must not open the find-queries database.
 """
 import sys
 import types
@@ -216,6 +217,67 @@ class WidgetListItemTitleTest(unittest.TestCase):
         listitem = li.get_listitem()
         self.assertEqual(listitem.label, 'Dune : Deuxieme partie')
         self.assertEqual(listitem.info['title'], 'Dune : Deuxieme partie')
+
+
+def _import_container():
+    parser = types.ModuleType('jurialmunkey.parser')
+    parser.__dict__.update(sys.modules['jurialmunkey.parser'].__dict__)
+    parser.boolean = lambda value: str(value).lower() in ('true', '1')
+    logger = types.ModuleType('tmdbhelper.lib.addon.logger')
+    logger.__dict__.update(sys.modules['tmdbhelper.lib.addon.logger'].__dict__)
+    logger.TimerList = object
+    stubs = {'jurialmunkey.parser': parser, 'tmdbhelper.lib.addon.logger': logger}
+    with mock.patch.dict(sys.modules, stubs):
+        sys.modules.pop('tmdbhelper.lib.items.container', None)
+        from tmdbhelper.lib.items import container
+        sys.modules.pop('tmdbhelper.lib.items.container', None)
+    return container
+
+
+class ContainerTMDbIdTest(unittest.TestCase):
+
+    def make_container(self, **params):
+        container = _import_container()
+        lookups = []
+
+        class QueryDatabase:
+            def get_tmdb_id(self, **kwargs):
+                lookups.append(kwargs)
+                return 'found'
+
+        class Container(container.ContainerDirectoryCommon):
+            @property
+            def query_database(self):
+                lookups.append('opened')
+                return QueryDatabase()
+
+        return Container(1, '', **params), lookups
+
+    def test_lists_without_ids_or_query_skip_the_lookup_database(self):
+        for params in (
+                dict(info='popular', tmdb_type='movie'),
+                dict(info='discover', tmdb_type='tv', with_genres='18', widget='true', reload='123'),
+                dict(info='trending_day', tmdb_type='movie', imdb_id='', query='')):
+            with self.subTest(params=params):
+                container, lookups = self.make_container(**params)
+                container.get_tmdb_id()
+                self.assertIsNone(container.params['tmdb_id'])
+                self.assertEqual(lookups, [])
+
+    def test_lists_with_an_id_or_query_still_look_it_up(self):
+        for key, value in (('imdb_id', 'tt0111161'), ('tvdb_id', '81189'), ('query', 'Dune'), ('use_multisearch', 'true')):
+            with self.subTest(key=key):
+                container, lookups = self.make_container(info='details', tmdb_type='movie', **{key: value})
+                container.get_tmdb_id()
+                self.assertEqual(container.params['tmdb_id'], 'found')
+                self.assertEqual(lookups[0], 'opened')
+                self.assertEqual(lookups[1][key], value)
+
+    def test_existing_tmdb_id_is_kept(self):
+        container, lookups = self.make_container(info='details', tmdb_type='movie', tmdb_id='42', query='Dune')
+        container.get_tmdb_id()
+        self.assertEqual(container.params['tmdb_id'], '42')
+        self.assertEqual(lookups, [])
 
 
 if __name__ == '__main__':

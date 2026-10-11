@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.6"
+version="6.17.3.7"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.6
+  <news>version 6.17.3.7
+- Widgets without an id or search query (popular, trending, discover and most other lists) start a little faster: they no longer open the lookup database they do not need.
+
+version 6.17.3.6
 - Discover widgets no longer refetch from TMDb every time widgets reload (after Trakt actions or timed reloads); they use the list cache again.
 
 version 6.17.3.5
