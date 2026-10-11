@@ -50,7 +50,8 @@ class ListDiscoverProperties:
     discover_params_to_del = (
         'with_id', 'with_separator',
         'cacheonly', 'nextpage', 'widget', 'plugin_category', 'fanarttv',
-        'tmdb_type', 'tmdb_id', 'page', 'limit', 'length', 'info')
+        'tmdb_type', 'tmdb_id', 'page', 'limit', 'length', 'info',
+        'reload')  # Primez: Widget reload token is volatile so keep it out of the TMDb url and list cache name
 
     @cached_property
     def with_separator(self):
