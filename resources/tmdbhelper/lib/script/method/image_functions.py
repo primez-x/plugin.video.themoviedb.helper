@@ -4,18 +4,16 @@
 from jurialmunkey.ftools import cached_property
 
 
+# Run in the script's own thread: a thread still running when the script
+# returns delays the end of the Python interpreter
 def blur_image(blur_image=None, prefix='ListItem', **kwargs):
     from tmdbhelper.lib.monitor.images import ImageFunctions
-    blur_img = ImageFunctions(method='blur', artwork=blur_image, prefix=prefix)
-    blur_img.setName('blur_img')
-    blur_img.start()
+    ImageFunctions(method='blur', artwork=blur_image, prefix=prefix, is_thread=False).run()
 
 
 def image_colors(image_colors=None, prefix='ListItem', **kwargs):
     from tmdbhelper.lib.monitor.images import ImageFunctions
-    image_colors = ImageFunctions(method='colors', artwork=image_colors, prefix=prefix)
-    image_colors.setName('image_colors')
-    image_colors.start()
+    ImageFunctions(method='colors', artwork=image_colors, prefix=prefix, is_thread=False).run()
 
 
 class GenreArtwork:
