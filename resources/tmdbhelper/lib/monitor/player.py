@@ -410,12 +410,14 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
         self.scrobbler_sync()
 
     def get_playingitem(self):
-        # Check that video other than dummy splash video is playing
         try:
-            playing_file = self.getPlayingFile()
-        except RuntimeError:  # Playback ended before the callback ran
+            self._get_playingitem()
+        except RuntimeError:  # Playback ended before the callback finished
             self.reset_properties()
-            return
+
+    def _get_playingitem(self):
+        # Check that video other than dummy splash video is playing
+        playing_file = self.getPlayingFile()
         if playing_file and playing_file.endswith('dummy.mp4'):
             self.reset_properties()
             return

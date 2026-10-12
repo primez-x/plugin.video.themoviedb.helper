@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.9"
+version="6.17.3.10"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.9
+  <news>version 6.17.3.10
+- Fix an error when playback stops while TMDb Helper is still reading the playing item: the player properties are now simply reset.
+
+version 6.17.3.9
 - Skin blur and colour image commands finish their work before the script ends instead of leaving it running while Kodi shuts the script down (a possible cause of Kodi crashes).
 
 version 6.17.3.8
