@@ -411,7 +411,12 @@ class PlayerMonitor(Player, CommonMonitorFunctions):
 
     def get_playingitem(self):
         # Check that video other than dummy splash video is playing
-        if self.getPlayingFile() and self.getPlayingFile().endswith('dummy.mp4'):
+        try:
+            playing_file = self.getPlayingFile()
+        except RuntimeError:  # Playback ended before the callback ran
+            self.reset_properties()
+            return
+        if playing_file and playing_file.endswith('dummy.mp4'):
             self.reset_properties()
             return
 

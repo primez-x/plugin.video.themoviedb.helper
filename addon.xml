@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.7"
+version="6.17.3.8"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.7
+  <news>version 6.17.3.8
+- Fix an error traceback in the Kodi log when playback stops right as it starts, and stop logging errors every few minutes for log folders that do not exist.
+
+version 6.17.3.7
 - Widgets without an id or search query (popular, trending, discover and most other lists) start a little faster: they no longer open the lookup database they do not need.
 
 version 6.17.3.6

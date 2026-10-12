@@ -45,10 +45,14 @@ class CronJobMonitor(SafeThread):
         self.database_maintenance.recache_kodidb(notification=False)
 
     def _do_delete_old_log_files_in_folder(self, folder, regex, days=-7):
+        import xbmcvfs
         from tmdbhelper.lib.files.futils import get_files_in_folder, get_write_path, delete_file
         from tmdbhelper.lib.addon.tmdate import get_todays_date
+        path = get_write_path(folder, make_dir=False)
+        if not xbmcvfs.exists(path):  # Listing a missing folder logs a Kodi error
+            return
         date = get_todays_date(str_fmt="%Y-%m-%d", days=days)
-        for file in get_files_in_folder(get_write_path(folder, make_dir=False), regex=regex):
+        for file in get_files_in_folder(path, regex=regex):
             if file > date:
                 continue
             delete_file(folder, file)
