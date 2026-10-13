@@ -101,12 +101,20 @@ class Poller(WindowChecker):
 
     @property
     def localwidgetcontainer_window_ids(self):
+        # Primez: this property is read on every poll; only re-parse the
+        # skin string when it actually changes.
+        raw = get_infolabel(CV_USE_LOCAL_WINDOWIDS)
+        cached = getattr(self, '_localwidgetcontainer_window_ids_cache', (None, None))
+        if cached[0] == raw and cached[1] is not None:
+            return cached[1]
         try:
-            values = get_infolabel(CV_USE_LOCAL_WINDOWIDS).split('|')
+            values = raw.split('|')
             values = tuple((int(i) for i in values)) if values else None
-            return values or self.localwidgetcontainer_default_window_ids
+            parsed = values or self.localwidgetcontainer_default_window_ids
         except (AttributeError, ValueError, TypeError):
-            return self.localwidgetcontainer_default_window_ids
+            parsed = self.localwidgetcontainer_default_window_ids
+        self._localwidgetcontainer_window_ids_cache = (raw, parsed)
+        return parsed
 
     @property
     def is_on_fullscreen(self):

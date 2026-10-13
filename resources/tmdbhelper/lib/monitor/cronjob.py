@@ -21,6 +21,7 @@ class CronJobMonitor(SafeThread):
 
     def _on_poll(self):
         self._do_database_maintenance()
+        self._do_prune_caches()
         self._do_delete_old_databases()
         self._do_library_update_check()
         self._do_delete_old_log_files()
@@ -37,6 +38,9 @@ class CronJobMonitor(SafeThread):
 
     def _do_database_maintenance(self):
         self.database_maintenance.vacuum()
+
+    def _do_prune_caches(self):
+        self.database_maintenance.prune_caches()
 
     def _do_delete_old_databases(self):
         self.database_maintenance.delete_legacy_folders()

@@ -58,6 +58,15 @@ def md5hash(value):
     return hashlib.md5(value).hexdigest()
 
 
+def _touch_file(path):
+    # Primez: mark a cached derivative as used so the maintenance prune
+    # (which deletes by mtime) only removes files nobody has needed lately.
+    try:
+        os.utime(xbmcvfs.translatePath(path), None)
+    except OSError:
+        pass
+
+
 def _imageopen(image):
     with xbmcvfs.File(image, 'rb') as f:
         image_bytes = f.readBytes()
@@ -288,7 +297,9 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
         filename = f'cropped-{md5hash(source)}.png'
         destination = os.path.join(self.save_path, filename)
         try:
-            if not xbmcvfs.exists(destination):  # Used to do os.utime(destination, None) on existing here
+            if xbmcvfs.exists(destination):
+                _touch_file(destination)
+            else:
                 img, targetfile = _openimage(source, self.save_path, filename)
                 try:
                     # Errors with single channel L conversion to RGBa so catch exceptions
@@ -316,7 +327,10 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
         tile_destination = os.path.join(self.save_path, f'{filename}-tiled.jpg')
         try:
             outputs = (destination, diffuse_destination, tile_destination)
-            if not all(xbmcvfs.exists(i) for i in outputs if i):  # os.utime(destination, None)
+            if all(xbmcvfs.exists(i) for i in outputs if i):
+                for i in outputs:
+                    _touch_file(i) if i else None
+            else:
                 img, targetfile = _openimage(source, self.save_path, filename, download=get_blur_download_url(source, self.blur_size))
                 img.thumbnail((self.blur_size, self.blur_size))
                 img = img.convert('RGB')
@@ -342,7 +356,9 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
         filename = f'{md5hash(source)}.png'
         destination = os.path.join(self.save_path, filename)
         try:
-            if not xbmcvfs.exists(destination):  # os.utime(destination, None)
+            if xbmcvfs.exists(destination):
+                _touch_file(destination)
+            else:
                 img, targetfile = _openimage(source, self.save_path, filename)
                 img = img.convert('LA')
                 _saveimage(img, destination)
@@ -427,7 +443,8 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
         targetfile = None
 
         try:
-            if xbmcvfs.exists(destination):  # os.utime(destination, None)
+            if xbmcvfs.exists(destination):
+                _touch_file(destination)
                 img = _imageopen(xbmcvfs.translatePath(destination))
             else:
                 img, targetfile = _openimage(source, self.save_path, filename)

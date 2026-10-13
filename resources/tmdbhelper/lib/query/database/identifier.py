@@ -6,6 +6,7 @@ IdentifierTuple = namedtuple("identifierTuple", "item_id tmdb_id tmdb_type")
 
 TABLE = 'identifier'
 KEYS = ('id', 'tmdb_id', 'tmdb_type')
+IDENTIFIER_EXPIRY = 60 * 60 * 24 * 90  # Primez: re-check fuzzy matches after 90 days
 
 
 def make_identifier_id(
@@ -48,8 +49,12 @@ class FindQueriesDatabaseIdentifier:
     }
 
     def get_identifier(self, item_id):
-        kwgs = {'values': (item_id, ), 'conditions': 'id=?'}
-        data = self.get_cached_values(TABLE, KEYS, **kwgs)
+        # Primez: per-item expiry so a wrong fuzzy match is not kept forever;
+        # rows written before per-item expiry existed count as expired.
+        if self.is_expired(f'{TABLE}.{item_id}'):
+            return None
+        with self.access.connection.open():
+            data = self.get_all_values(TABLE, KEYS, values=(item_id, ), conditions='id=?')
         return (
             IdentifierTuple(item_id, data[0]['tmdb_id'], data[0]['tmdb_type'])
             if data and data[0] else
@@ -60,11 +65,12 @@ class FindQueriesDatabaseIdentifier:
         if not item_id or not tmdb_id or not tmdb_type:
             return
         identifier_tuple = IdentifierTuple(item_id, tmdb_id, tmdb_type)
-        self.set_cached_values(TABLE, KEYS, [identifier_tuple])
+        self.set_cached_values(TABLE, KEYS, [identifier_tuple], item_id=item_id, expiry=IDENTIFIER_EXPIRY)
         return identifier_tuple
 
     def del_identifier(self, item_id):
         with self.access.connection.open() as connection:
             connection.execute('BEGIN')
             self.access.del_cached(TABLE, item_id, children=False)
+            self.access.del_cached('expiry', f'{TABLE}.{item_id}', children=False)
             connection.execute('COMMIT')

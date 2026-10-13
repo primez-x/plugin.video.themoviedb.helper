@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.11"
+version="6.17.3.12"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.11
+  <news>version 6.17.3.12
+- Stop the image and item caches growing forever: blurred/cropped images unused for 30 days and items expired for over 90 days are now cleaned up daily (they are recreated on demand), and fuzzy title matches are re-checked after 90 days instead of being kept forever.
+
+version 6.17.3.11
 - Fix the blurred background image missing its tiled version (used by Arctic Fuse) when only part of the image cache was left: it is now recreated.
 
 version 6.17.3.10
