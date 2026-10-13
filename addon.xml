@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.10"
+version="6.17.3.11"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.10
+  <news>version 6.17.3.11
+- Fix the blurred background image missing its tiled version (used by Arctic Fuse) when only part of the image cache was left: it is now recreated.
+
+version 6.17.3.10
 - Fix an error when playback stops while TMDb Helper is still reading the playing item: the player properties are now simply reset.
 
 version 6.17.3.9

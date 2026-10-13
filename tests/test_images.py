@@ -76,6 +76,16 @@ class BlurOutputTest(unittest.TestCase):
             self.assertEqual(img.format, 'PNG')
             self.assertEqual(img.mode, 'RGBA')
 
+    def test_missing_tiled_output_is_regenerated(self):
+        destination = self.imgfunc.blur(ORIGINAL)
+        tiled = f'{destination}-tiled.jpg'
+        os.remove(tiled)
+        self.assertTrue(os.path.exists(destination))
+        self.assertTrue(os.path.exists(f'{destination}-diffuse-{self.imgfunc.corner}.jpg'))
+
+        self.assertEqual(self.imgfunc.blur(ORIGINAL), destination)
+        self.assertTrue(os.path.exists(tiled))
+
     def test_missing_rendition_falls_back_to_original(self):
         kodistubs.URLS[ORIGINAL] = kodistubs.URLS.pop('https://image.tmdb.org/t/p/w780/abc123.jpg')
         destination = self.imgfunc.blur(ORIGINAL)

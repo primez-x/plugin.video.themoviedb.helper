@@ -315,7 +315,8 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
         diffuse_destination = os.path.join(self.save_path, f'{filename}-diffuse-{self.corner}.jpg') if self.corner else None
         tile_destination = os.path.join(self.save_path, f'{filename}-tiled.jpg')
         try:
-            if not xbmcvfs.exists(destination) or (diffuse_destination and not xbmcvfs.exists(diffuse_destination)):  # os.utime(destination, None)
+            outputs = (destination, diffuse_destination, tile_destination)
+            if not all(xbmcvfs.exists(i) for i in outputs if i):  # os.utime(destination, None)
                 img, targetfile = _openimage(source, self.save_path, filename, download=get_blur_download_url(source, self.blur_size))
                 img.thumbnail((self.blur_size, self.blur_size))
                 img = img.convert('RGB')
