@@ -334,7 +334,8 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
             return destination
 
         except Exception:
-            return ''
+            # Keep a cached blur usable when only a derivative could not be regenerated
+            return destination if xbmcvfs.exists(destination) else ''
 
     @lazyimport_pil
     def desaturate(self, source):
