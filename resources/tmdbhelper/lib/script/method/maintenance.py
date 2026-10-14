@@ -226,24 +226,26 @@ class DatabaseMaintenance:
 
     @staticmethod
     def recache_kodidb(notification=True, confirmation=False):
-        from tmdbhelper.lib.addon.plugin import ADDONPATH
+        from tmdbhelper.lib.addon.plugin import ADDONPATH, get_setting
         from tmdbhelper.lib.api.kodi.rpc import KodiLibrary
         from tmdbhelper.lib.addon.logger import TimerFunc
         from xbmcgui import Dialog
 
-        with TimerFunc('KodiLibrary sync took', inline=True):
-            KodiLibrary('movie', cache_refresh=True)
-            KodiLibrary('tvshow', cache_refresh=True)
+        if get_setting('use_kodi_local_db', 'int') or get_setting('default_player_kodi', 'int'):
+            with TimerFunc('KodiLibrary sync took', inline=True):
+                KodiLibrary('movie', cache_refresh=True).database
+                KodiLibrary('tvshow', cache_refresh=True).database
+            data = 'Kodi Library cache refreshed'
+        else:
+            data = 'Kodi Library lookup is disabled'
 
         if notification:
             head = 'TMDbHelper'
-            data = 'Kodi Library cached to memory'
             icon = f'{ADDONPATH}/icon.png'
             Dialog().notification(head, data, icon=icon)
 
         if confirmation:
             head = 'TMDbHelper'
-            data = 'Kodi Library cached to memory'
             Dialog().ok(head, data)
 
 

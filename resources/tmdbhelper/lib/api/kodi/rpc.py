@@ -1,4 +1,5 @@
 from jurialmunkey.parser import try_int, find_dict_in_list
+from jurialmunkey.ftools import cached_property
 from tmdbhelper.lib.addon.thread import use_thread_lock
 import jurialmunkey.jsnrpc as jurialmunkey_jsnrpc
 
@@ -42,17 +43,17 @@ def get_item_details(dbid=None, method=None, key=None, properties=None):
 
 def get_movie_details(dbid=None):
     properties = [
-        "title", "genre", "year", "rating", "director", "trailer", "tagline", "plot", "plotoutline", "originaltitle",
+        "title", "genre", "rating", "director", "trailer", "tagline", "plot", "plotoutline", "originaltitle",
         "lastplayed", "playcount", "writer", "studio", "mpaa", "cast", "country", "imdbnumber", "runtime", "set",
-        "showlink", "streamdetails", "top250", "votes", "fanart", "thumbnail", "file", "sorttitle", "resume", "setid",
+        "showlink", "streamdetails", "top250", "votes", "sorttitle", "setid",
         "dateadded", "tag", "art", "userrating", "ratings", "premiered", "uniqueid"]
     return get_item_details(dbid=dbid, method="VideoLibrary.GetMovieDetails", key="movie", properties=properties)
 
 
 def get_tvshow_details(dbid=None):
     properties = [
-        "title", "genre", "year", "rating", "plot", "studio", "mpaa", "cast", "playcount", "episode", "imdbnumber",
-        "premiered", "votes", "lastplayed", "fanart", "thumbnail", "file", "originaltitle", "sorttitle", "episodeguide",
+        "title", "genre", "rating", "plot", "studio", "mpaa", "cast", "playcount", "episode", "imdbnumber",
+        "premiered", "votes", "lastplayed", "originaltitle", "sorttitle",
         "season", "watchedepisodes", "dateadded", "tag", "art", "userrating", "ratings", "runtime", "uniqueid"]
     return get_item_details(dbid=dbid, method="VideoLibrary.GetTVShowDetails", key="tvshow", properties=properties)
 
@@ -77,6 +78,8 @@ THREAD_LOCK = 'TMDbHelper.KodiLibrary.ThreadLock'
 
 
 class KodiLibrary(object):
+    index_identifiers = False
+
     def __init__(self, dbtype=None, tvshowid=None, logging=True, cache_refresh=False):
         self._dbtype = dbtype
         self._tvshowid = tvshowid
@@ -99,6 +102,21 @@ class KodiLibrary(object):
         except AttributeError:
             self._database = self._get_cached_database()
             return self._database
+
+    @cached_property
+    def identifier_indexes(self):
+        indexes = {key: {} for key in ('dbid', 'imdb_id', 'tmdb_id', 'tvdb_id')}
+        for position, item in enumerate(self.database or []):
+            for key, index in indexes.items():
+                value = item.get(key)
+                if value is not None:
+                    index.setdefault(value, []).append(position)
+        return indexes
+
+    def find_identifier(self, key, value):
+        if not self.index_identifiers:
+            return find_dict_in_list(self.database, key, value)
+        return self.identifier_indexes[key].get(value, [])
 
     @use_thread_lock(THREAD_LOCK)
     def _get_cached_database(self):
@@ -191,16 +209,16 @@ class KodiLibrary(object):
             return
 
         yearcheck = False
-        index_list = find_dict_in_list(self.database, 'dbid', dbid) if dbid else []
+        index_list = self.find_identifier('dbid', dbid) if dbid else []
 
         if not index_list and season:
             index_list = find_dict_in_list(self.database, 'season', try_int(season))
         if not index_list and imdb_id:
-            index_list = find_dict_in_list(self.database, 'imdb_id', imdb_id)
+            index_list = self.find_identifier('imdb_id', imdb_id)
         if not index_list and tmdb_id:
-            index_list = find_dict_in_list(self.database, 'tmdb_id', str(tmdb_id))
+            index_list = self.find_identifier('tmdb_id', str(tmdb_id))
         if not index_list and tvdb_id:
-            index_list = find_dict_in_list(self.database, 'tvdb_id', str(tvdb_id))
+            index_list = self.find_identifier('tvdb_id', str(tvdb_id))
         if not index_list:
             yearcheck = str(year) or 'dummynull'  # Also use year if matching by title to be certain we have correct item. Dummy value for True value that will always fail comparison check.
         if not index_list and originaltitle:

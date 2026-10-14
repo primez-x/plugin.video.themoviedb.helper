@@ -2720,6 +2720,41 @@ msgctxt "#32540"
 msgid "All digital releases"
 msgstr ""
 
+#: /resources/settings.xml
+msgctxt "#32541"
+msgid "Rating providers"
+msgstr ""
+
+#: /resources/settings.xml
+msgctxt "#32542"
+msgid "Use OMDb ratings"
+msgstr ""
+
+#: /resources/settings.xml
+msgctxt "#32543"
+msgid "Use MDbList ratings"
+msgstr ""
+
+#: /resources/settings.xml
+msgctxt "#32544"
+msgid "Use Trakt ratings"
+msgstr ""
+
+#: /resources/settings.xml
+msgctxt "#32545"
+msgid "Use TMDb ratings"
+msgstr ""
+
+#: /resources/settings.xml
+msgctxt "#32546"
+msgid "Use IMDb Top 250 rank"
+msgstr ""
+
+#: /resources/settings.xml
+msgctxt "#32547"
+msgid "Provider controls apply when ratings refresh. Cached ratings remain until refresh or expiry. OMDb and MDbList require personal API keys."
+msgstr ""
+
 msgctxt "#30030"
 msgid "Hindi (India)"
 msgstr ""

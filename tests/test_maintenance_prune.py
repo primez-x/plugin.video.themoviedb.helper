@@ -102,6 +102,66 @@ class PruneImageCachesTest(unittest.TestCase):
             self.assertEqual([os.path.basename(p) for p in deleted], ['old.jpg'])
             self.assertTrue(os.path.exists(os.path.join(folder, 'new.jpg')))
 
+    def test_color_sidecars_are_pruned_and_recent_sidecars_are_kept(self):
+        kodistubs.reset()
+        now = int(time.time())
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = os.path.join(tmp, 'colors_v2')
+            os.makedirs(folder)
+            for name, age in (('old.json', 40 * 86400), ('active.json', 1)):
+                path = os.path.join(folder, name)
+                with open(path, 'wb') as stream:
+                    stream.write(b'[120,80,40]')
+                os.utime(path, (now - age, now - age))
+            with mock.patch.object(xbmcvfs, 'listdir', lambda p: ([], os.listdir(p)), create=True), \
+                    mock.patch.object(xbmcvfs, 'Stat', _Stat, create=True), \
+                    mock.patch.object(DatabaseMaintenance, 'img_cache_base',
+                                      new_callable=mock.PropertyMock, return_value=f'{tmp}/'):
+                DatabaseMaintenance().prune_image_caches(force=True)
+            self.assertEqual(os.listdir(folder), ['active.json'])
+
+
+class RecacheKodiLibraryTest(unittest.TestCase):
+    """Cover lazy cache access, disabled consumers, and truthful manual notifications."""
+
+    def test_recache_fetches_both_databases_when_either_consumer_is_enabled(self):
+        for settings in ({'use_kodi_local_db': 1}, {'default_player_kodi': 1}):
+            reads = []
+
+            class Library:
+                def __init__(self, dbtype, cache_refresh=False):
+                    self.dbtype = dbtype
+                    self.refresh = cache_refresh
+
+                @property
+                def database(self):
+                    reads.append((self.dbtype, self.refresh))
+                    return []
+
+            rpc = types.ModuleType('tmdbhelper.lib.api.kodi.rpc')
+            rpc.KodiLibrary = Library
+            with mock.patch.dict(sys.modules, {'tmdbhelper.lib.api.kodi.rpc': rpc}), \
+                    mock.patch('tmdbhelper.lib.addon.plugin.get_setting', lambda key, *a: settings.get(key, 0)), \
+                    mock.patch('tmdbhelper.lib.addon.plugin.ADDONPATH', '/addon', create=True), \
+                    mock.patch('xbmcgui.Dialog', return_value=mock.Mock(), create=True):
+                DatabaseMaintenance.recache_kodidb(notification=False)
+            self.assertEqual(reads, [('movie', True), ('tvshow', True)])
+
+    def test_disabled_consumers_do_not_fetch_or_report_success(self):
+        library = mock.Mock()
+        rpc = types.ModuleType('tmdbhelper.lib.api.kodi.rpc')
+        rpc.KodiLibrary = library
+        dialog = mock.Mock()
+        with mock.patch.dict(sys.modules, {'tmdbhelper.lib.api.kodi.rpc': rpc}), \
+                mock.patch('tmdbhelper.lib.addon.plugin.get_setting', return_value=0), \
+                mock.patch('tmdbhelper.lib.addon.plugin.ADDONPATH', '/addon', create=True), \
+                mock.patch('xbmcgui.Dialog', return_value=dialog, create=True):
+            DatabaseMaintenance.recache_kodidb(notification=True, confirmation=True)
+        library.assert_not_called()
+        messages = str(dialog.mock_calls)
+        self.assertNotIn('cached to memory', messages)
+        self.assertIn('disabled', messages.lower())
+
 
 class _FakeDatabase:
     """Minimal stand-in with the Database execute_sql surface maintenance uses."""

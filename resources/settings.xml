@@ -371,6 +371,33 @@
             </group>
         </category>
         <category id="api keys" label="32017" help="">
+            <group id="9" label="32541">
+                <setting id="ratings_tmdb" type="boolean" label="32545" help="32547">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ratings_trakt" type="boolean" label="32544" help="32547">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ratings_omdb" type="boolean" label="32542" help="32547">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ratings_mdblist" type="boolean" label="32543" help="32547">
+                    <level>0</level>
+                    <default>false</default>
+                    <control type="toggle"/>
+                </setting>
+                <setting id="ratings_top250" type="boolean" label="32546" help="32547">
+                    <level>0</level>
+                    <default>true</default>
+                    <control type="toggle"/>
+                </setting>
+            </group>
             <group id="1" label="32029">
                 <setting id="omdb_apikey" type="string" label="32001" help="">
                     <level>0</level>
@@ -672,11 +699,6 @@
                     <control type="button" format="action">
                         <data>RunScript(plugin.video.themoviedb.helper, set_defaultplayer=tv)</data>
                     </control>
-                </setting>
-                <setting id="default_player_provider" type="boolean" label="32466" help="">
-                    <level>0</level>
-                    <default>True</default>
-                    <control type="toggle"/>
                 </setting>
                 <setting id="default_player_kodi" type="integer" label="32400" help="">
                     <level>0</level>

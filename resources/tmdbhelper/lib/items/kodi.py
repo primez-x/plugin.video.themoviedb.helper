@@ -6,6 +6,8 @@ class KodiDb():
     def __init__(self, tmdb_type):
         self.kodi_db_tv = {}
         self.kodi_db = get_kodi_library(tmdb_type)
+        if self.kodi_db:
+            self.kodi_db.index_identifiers = True
 
     def get_kodi_details(self, li):
         """ Pass through listitem to get Kodi details """

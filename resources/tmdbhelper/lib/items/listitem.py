@@ -97,6 +97,7 @@ class _ListItem(object):
     is_unaired = False
 
     context_additions = None
+    context_settings = None
     infoproperties_additions = {}
     format_unaired_labels = False
     label_format_unaired = '{}'
@@ -187,7 +188,7 @@ class _ListItem(object):
 
     def finalise_context_menu(self):
         from tmdbhelper.lib.items.context import ContextMenu
-        self.context_menu += ContextMenu(self).get()
+        self.context_menu += ContextMenu(self, settings=self.context_settings).get()
         self.context_menu += self.context_additions or []
         return self.context_menu
 
@@ -231,11 +232,13 @@ class _ListItem(object):
         if self.params.get('info') == 'search' and not self.params.get('query'):
             self.params['reload'] = 'forced'  # Add param to empty search to ensure reloads
 
-    def finalise(self):
+    def finalise(self, context_settings=None, build_context_menu=True):
+        self.context_settings = context_settings
         self.finalise_params()
         self.finalise_infolabels()
         self.finalise_infoproperties()
-        self.finalise_context_menu()
+        if build_context_menu:
+            self.finalise_context_menu()
         self.finalise_art()
         self.finalise_label()
         return self

@@ -172,6 +172,32 @@ class MissingMetadataHTTPTest(unittest.TestCase):
     def memo_properties(self):
         return {key: value for key, value in kodistubs.WINDOW_PROPERTIES.get(10000, {}).items() if '.memcache.' in key}
 
+    def test_connection_notification_setting_changes_after_api_creation(self):
+        api = self.api()
+        settings = {'enabled': False}
+        request = sys.modules['tmdbhelper.lib.api.request']
+        with mock.patch.object(request, 'get_setting', lambda *a, **k: settings['enabled']):
+            api.do_error_notification('log', 'head', 'body')
+            settings['enabled'] = True
+            api.do_error_notification('log', 'head', 'body')
+            settings['enabled'] = False
+            api.do_error_notification('log', 'head', 'body')
+        self.assertEqual(self.notifications, [('head', 'body')])
+
+    def test_provider_notification_suppression_survives_global_enable(self):
+        request = sys.modules['tmdbhelper.lib.api.request']
+
+        class API(request.RequestAPI):
+            _basiccache = staticmethod(lambda **kwargs: None)
+
+        with mock.patch.object(request, 'get_setting', return_value=True):
+            api = API(error_notification=False)
+            api.do_error_notification('log', 'head', 'body')
+            api = API()
+            api._error_notification = False
+            api.do_error_notification('log', 'head', 'body')
+        self.assertEqual(self.notifications, [])
+
     def test_confirmed_missing_reuses_global_memo_until_five_minute_expiry(self):
         for code in (6, 34):
             with self.subTest(code=code):

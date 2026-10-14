@@ -4,6 +4,8 @@ import re
 import contextlib
 import xbmcvfs
 import colorsys
+import json
+import math
 import hashlib
 import random
 from xbmc import getCacheThumbName, skinHasImage, Monitor, sleep
@@ -240,15 +242,17 @@ def _saveimage(image, targetfile, fmt='PNG', **kwargs):
 
 
 class ImageFunctions(SafeThread, WindowPropertySetter):
-    save_path = f"{get_setting('image_location', 'str') or ADDONDATA}{{}}/"
-    blur_size = try_int(get_infolabel('Skin.String(TMDbHelper.Blur.Size)')) or 480
     crop_size = (800, 310)
-    radius = try_int(get_infolabel('Skin.String(TMDbHelper.Blur.Radius)')) or 40
-    corner = try_int(get_infolabel('Skin.String(TMDbHelper.Corner.Radius)')) or 20
+    desaturate_size = (1920, 1080)
 
     def __init__(self, method=None, artwork=None, is_thread=True, prefix='ListItem'):
         if is_thread:
             SafeThread.__init__(self)
+        self.save_path = f"{get_setting('image_location', 'str') or ADDONDATA}{{}}/"
+        self.blur_size = try_int(get_infolabel('Skin.String(TMDbHelper.Blur.Size)')) or 480
+        self.radius = try_int(get_infolabel('Skin.String(TMDbHelper.Blur.Radius)')) or 40
+        corner = get_infolabel('Skin.String(TMDbHelper.Corner.Radius)')
+        self.corner = max(0, try_int(corner, fallback=20))
         self.image = artwork
         self.func = None
         self.save_orig = False
@@ -353,17 +357,22 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
 
     @lazyimport_pil
     def desaturate(self, source):
-        filename = f'{md5hash(source)}.png'
-        destination = os.path.join(self.save_path, filename)
+        filename = f'{md5hash(source)}-{self.desaturate_size[0]}x{self.desaturate_size[1]}'
         try:
-            if xbmcvfs.exists(destination):
-                _touch_file(destination)
-            else:
-                img, targetfile = _openimage(source, self.save_path, filename)
-                img = img.convert('LA')
-                _saveimage(img, destination)
+            for extension in ('jpg', 'png'):
+                destination = os.path.join(self.save_path, f'{filename}.{extension}')
+                if xbmcvfs.exists(destination):
+                    _touch_file(destination)
+                    return destination
+            img, targetfile = _openimage(source, self.save_path, filename)
+            try:
+                img.thumbnail(self.desaturate_size)
+                has_alpha = 'A' in img.getbands() or 'transparency' in img.info
+                img = img.convert('LA' if has_alpha else 'L')
+                destination = os.path.join(self.save_path, f'{filename}.png' if has_alpha else f'{filename}.jpg')
+                _saveimage(img, destination) if has_alpha else _saveimage(img, destination, 'JPEG', quality=85)
+            finally:
                 _closeimage(img, targetfile)
-
             return destination
 
         except Exception:
@@ -371,12 +380,8 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
 
     def get_maincolor(self, img):
         """Returns main color of image as list of rgb values 0:255"""
-        rgb_list = [None, None, None]
-        for channel in range(3):
-            pixels = img.getdata(band=channel)
-            values = [pixel for pixel in pixels]
-            rgb_list[channel] = self.clamp(sum(values) / len(values))
-        return rgb_list
+        from PIL import ImageStat
+        return [self.clamp(value) for value in ImageStat.Stat(img).mean[:3]]
 
     def get_compcolor(self, r, g, b, shift=0.33):
         """
@@ -438,21 +443,30 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
 
     @lazyimport_pil
     def colors(self, source):
-        filename = f'{md5hash(source)}.png'
-        destination = self.save_path + filename
+        filename = f'{md5hash(source)}.json'
+        destination = os.path.join(self.save_path, filename)
         targetfile = None
+        img = None
 
         try:
+            maincolor_rgb = None
             if xbmcvfs.exists(destination):
+                with contextlib.suppress(ValueError, TypeError, UnicodeError):
+                    with xbmcvfs.File(destination) as stream:
+                        cached = json.loads(bytes(stream.readBytes()).decode('utf-8'))
+                    if (isinstance(cached, list) and len(cached) == 3
+                            and all(isinstance(value, (int, float)) and math.isfinite(value) and 0 <= value <= 255 for value in cached)):
+                        maincolor_rgb = cached
+            if maincolor_rgb is not None:
                 _touch_file(destination)
-                img = _imageopen(xbmcvfs.translatePath(destination))
             else:
                 img, targetfile = _openimage(source, self.save_path, filename)
                 img.thumbnail((128, 128))
                 img = img.convert('RGB')
-                _saveimage(img, destination)
+                maincolor_rgb = self.get_maincolor(img)
+                with xbmcvfs.File(destination, 'wb') as stream:
+                    stream.write(json.dumps(maincolor_rgb, separators=(',', ':')).encode('utf-8'))
 
-            maincolor_rgb = self.get_maincolor(img)
             maincolor_hex = self.rgb_to_hex(*self.get_color_lumsat(*maincolor_rgb))
             compcolor_rgb = self.get_compcolor(*maincolor_rgb)
             compcolor_hex = self.rgb_to_hex(*self.get_color_lumsat(*compcolor_rgb))
@@ -479,12 +493,14 @@ class ImageFunctions(SafeThread, WindowPropertySetter):
                     compcolor_propname, compcolor_propvalu, compcolor_hex, compcolor_propchek])
                 thread_compcolor.start()
 
-            _closeimage(img, targetfile)
             return maincolor_hex
 
         except Exception as exc:
             kodi_log(exc, 1)
             return ''
+        finally:
+            if img:
+                _closeimage(img, targetfile)
 
 
 class ImageArtworkGetter():

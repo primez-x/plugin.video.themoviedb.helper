@@ -150,6 +150,11 @@ def _listitem_modules():
     class GlobalSettingsDict(dict):
         route = {}
 
+        def __missing__(self, key):
+            func, args = self.route.get(key, (lambda *a: False, None))
+            self[key] = func(*(args or ()))
+            return self[key]
+
     plugin = types.ModuleType('tmdbhelper.lib.addon.plugin')
     plugin.__dict__.update(sys.modules['tmdbhelper.lib.addon.plugin'].__dict__)
     plugin.ADDONPATH = 'special://home/addons/plugin.video.themoviedb.helper'
@@ -217,6 +222,42 @@ class WidgetListItemTitleTest(unittest.TestCase):
         listitem = li.get_listitem()
         self.assertEqual(listitem.label, 'Dune : Deuxieme partie')
         self.assertEqual(listitem.info['title'], 'Dune : Deuxieme partie')
+
+    def test_widget_finalise_skips_context_menu_and_preserves_supplied_entries(self):
+        li = self.ListItem(**self.mapped_item('movie', 'Dune'))
+        li.context_menu = [('Custom', 'CustomCommand')]
+        with mock.patch.object(li, 'finalise_context_menu') as menu:
+            li.finalise(build_context_menu=False)
+        menu.assert_not_called()
+        self.assertEqual(li.context_menu, [('Custom', 'CustomCommand')])
+
+    def test_directory_context_settings_are_reused_for_every_row(self):
+        from tmdbhelper.lib.items import context
+        container_module = _import_container()
+        container = container_module.ContainerDirectoryCommon(1, '')
+        with mock.patch.object(context, 'get_setting', return_value=True) as settings, \
+                mock.patch.object(container_module, 'get_setting', settings):
+            for number in range(20):
+                li = self.ListItem(**self.mapped_item('movie', str(number)))
+                li.finalise(context_settings=container.context_settings)
+        self.assertEqual(settings.call_count, 6)
+
+    def test_widget_directory_reads_no_context_settings(self):
+        from tmdbhelper.lib.items import context
+        container = _import_container().ContainerDirectoryCommon(1, '', widget='true')
+        with mock.patch.object(context, 'get_setting', return_value=True) as settings:
+            self.assertEqual(container.context_settings, {})
+        settings.assert_not_called()
+
+    def test_container_passes_widget_policy_to_normal_and_next_page_rows(self):
+        container = _import_container().ContainerDirectoryCommon(1, '', widget='true')
+        container.is_excluded = lambda *args, **kwargs: False
+        for next_page in (False, True):
+            li = self.ListItem(**self.mapped_item('movie', 'Dune'))
+            li.next_page = next_page
+            with mock.patch.object(li, 'finalise', return_value=li) as finalise:
+                self.assertIs(container.make_item(li), li)
+            self.assertFalse(finalise.call_args.kwargs['build_context_menu'])
 
 
 def _import_container():

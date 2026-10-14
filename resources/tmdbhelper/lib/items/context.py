@@ -63,8 +63,9 @@ class ContextMenu():
     Context menu builds only for specified mediatypes (use other for all others)
     """
 
-    def __init__(self, listitem):
+    def __init__(self, listitem, settings=None):
         self._li = listitem
+        self.settings = settings
         self.info = {
             'ftv_id': self._li.ftv_id,
             'tmdb_id': self._li.tmdb_id,
@@ -86,7 +87,8 @@ class ContextMenu():
         if not params_def or not router_def:
             return
 
-        if not get_setting(mediatypes['setting']):
+        enabled = get_setting(mediatypes['setting']) if self.settings is None else self.settings.get(mediatypes['setting'])
+        if not enabled:
             return
 
         item = {}

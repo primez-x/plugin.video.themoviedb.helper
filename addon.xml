@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.13"
+version="6.17.3.14"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,15 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.13
+  <news>version 6.17.3.14
+- Build directories faster by reusing settings and skipping widget menu generation.
+- Add per-provider switches for external ratings, with MDbList off by default.
+- Fix database recache actions when library lookups are enabled.
+- Bound desaturated image size and store average colours as small sidecar files.
+- Apply thread, notification, and image settings without a restart.
+- Index Kodi library identifiers once per directory and trim detail requests.
+
+version 6.17.3.13
 - Cache confirmed missing TMDb metadata for five minutes.
 - Let manual refresh bypass the cache for items, collections, and ratings.
 

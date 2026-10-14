@@ -1,7 +1,7 @@
 from jurialmunkey.ftools import cached_property
 from tmdbhelper.lib.items.database.baseview_factories.concrete_classes.baseclass import BaseList
-from tmdbhelper.lib.query.database.database import FindQueriesDatabase
 from tmdbhelper.lib.addon.thread import ParallelThread
+from tmdbhelper.lib.addon.plugin import get_setting
 from jurialmunkey.parser import try_int
 
 
@@ -44,10 +44,10 @@ class RatingsDict(BaseList):
             return 'show'
 
     def get_imdb_id(self):
-        return FindQueriesDatabase().get_trakt_id(self.tmdb_id, 'tmdb', self.trakt_type, 'imdb')
+        return self.common_apis.query_database.get_trakt_id(self.tmdb_id, 'tmdb', self.trakt_type, 'imdb')
 
     def get_imdb_top250_list(self):
-        return FindQueriesDatabase().get_imdb_top250_list_cached(self.tmdb_type)
+        return self.common_apis.query_database.get_imdb_top250_list_cached(self.tmdb_type)
 
     @cached_property
     def mdblist_ratings(self):
@@ -88,14 +88,13 @@ class RatingsDict(BaseList):
 
     @cached_property
     def tmdb_ratings(self):
-        data = self.common_apis.tmdb_api.get_response_json(
-            self.tmdb_type, self.tmdb_id, cache_refresh=self.cache_refresh == 'force')
+        data = (self.parent_item_data or {}).get('infolabels')
         if not data:
             return {}
         try:
             return {
-                'tmdb_rating': int(data['vote_average'] * 10),
-                'tmdb_votes': data['vote_count']
+                'tmdb_rating': int(data['rating'] * 10),
+                'tmdb_votes': data['votes']
             }
         except (KeyError, TypeError, IndexError, ValueError):
             return {}
@@ -105,23 +104,31 @@ class RatingsDict(BaseList):
         """ function called when local cache does not have any data """
         data = {}
 
-        def get_data_attr(attr):
-            data.update(getattr(self, attr))
-
-        attribs = (
-            'omdb_ratings',
-            'mdblist_ratings',
-            'trakt_ratings',
-            'tmdb_ratings',
-            'imdb_top250',
-        )
+        providers = {
+            'omdb_ratings': 'ratings_omdb',
+            'mdblist_ratings': 'ratings_mdblist',
+            'trakt_ratings': 'ratings_trakt',
+            'tmdb_ratings': 'ratings_tmdb',
+            'imdb_top250': 'ratings_top250',
+        }
+        attribs = [attr for attr, setting in providers.items() if get_setting(setting)]
 
         self.mediatype = self.get_mediatype()
         self.trakt_type = self.get_trakt_type()
-        self.imdb_id = self.get_imdb_id()
+        needs_imdb = (
+            ('omdb_ratings' in attribs and self.common_apis.omdb_api)
+            or ('trakt_ratings' in attribs and self.common_apis.trakt_api
+                and self.common_apis.trakt_api.authenticator.is_authorized)
+        )
+        if needs_imdb:
+            self.imdb_id = self.get_imdb_id()
+        if 'imdb_top250' in attribs:
+            self.imdb_top250_list  # Resolve shared query data before the provider threads start.
 
-        with ParallelThread(attribs, get_data_attr):
-            pass
+        with ParallelThread(attribs, lambda attr: getattr(self, attr)) as thread:
+            results = thread.queue
+        for result in results:
+            data.update(result or {})
 
         return data
 

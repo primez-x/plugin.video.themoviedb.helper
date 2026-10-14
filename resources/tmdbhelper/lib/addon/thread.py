@@ -41,7 +41,9 @@ def use_thread_lock(property_name, timeout=10, polling=0.05, combine_name=False)
 
 
 class ParallelThread(jurialmunkey_thread.ParallelThread):
-    thread_max = get_setting('max_threads', mode='int')
+    @property
+    def thread_max(self):
+        return get_setting('max_threads', mode='int')
 
     @staticmethod
     def kodi_log(msg, level=0):

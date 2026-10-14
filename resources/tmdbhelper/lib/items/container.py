@@ -84,6 +84,13 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         return get_setting('contextmenu_make_node') if not self.is_widget else False
 
     @cached_property
+    def context_settings(self):
+        if self.is_widget:
+            return {}
+        from tmdbhelper.lib.items.context import CONTEXT_MENU_ITEMS
+        return {item['setting']: get_setting(item['setting']) for item in CONTEXT_MENU_ITEMS.values()}
+
+    @cached_property
     def is_excluded(self):
         from tmdbhelper.lib.items.filters import is_excluded
         return is_excluded
@@ -135,7 +142,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         def finalise_next_page():
             li.params['cacheonly'] = self.is_cacheonly
             li.params['plugin_category'] = self.plugin_category  # Carry the plugin category to next page in plugin:// path
-            return li.finalise()
+            return li.finalise(context_settings=self.context_settings, build_context_menu=not self.is_widget)
 
         def finalise_mediaitem():
             # Check if unaired and either apply special formatting or hide item depending on user settings
@@ -160,7 +167,7 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
             li.infoproperties_additions['widget'] = self.plugin_category
             li.infoproperties_additions.update(self.property_params)
 
-            return li.finalise()
+            return li.finalise(context_settings=self.context_settings, build_context_menu=not self.is_widget)
 
         return finalise_next_page() if li.next_page else finalise_mediaitem()
 
@@ -179,11 +186,11 @@ class ContainerDirectoryCommon(CommonContainerAPIs):
         return items
 
     def build_items(self, items):
-        """ Build items in threads """
+        """ Fetch details, then finalise rows in directory order. """
 
         items = self.build_detailed_items(items)
 
-        # Finalise listitems in parallel threads
+        # Keep finalisation serial to preserve directory order.
         with TimerList(self.timer_lists, '--make', log_threshold=0.001, logging=self.log_timers):
             items = self.make_items(items)
 
