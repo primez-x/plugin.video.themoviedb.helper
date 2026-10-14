@@ -22,6 +22,8 @@ from unittest import mock
 from urllib.parse import parse_qs, urlsplit
 from urllib.request import urlopen
 
+# Load requests before module patches so CookieJar classes keep one identity.
+import requests
 import kodistubs
 
 kodistubs.install()
@@ -204,7 +206,6 @@ class MissingMetadataHTTPTest(unittest.TestCase):
         self.response(200, {'id': 12, 'title': 'First'})
         self.response(200, {'id': 12, 'title': 'Second'})
         closed = []
-        import requests
         original_close = requests.Response.close
 
         def close(response):
