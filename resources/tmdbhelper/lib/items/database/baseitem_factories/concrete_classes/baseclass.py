@@ -91,7 +91,7 @@ class BaseItem(ItemDetailsDatabaseAccess):
 
     @property
     def online_data_kwgs(self):
-        return {'append_to_response': self.common_apis.tmdb_api.get_append_to_response(
+        return {'cache_refresh': self.cache_refresh == 'force', 'append_to_response': self.common_apis.tmdb_api.get_append_to_response(
             tmdbtype=self.append_to_response_tmdbtype,
             extended=self.append_to_response_extended,
             language=self.append_to_response_language,

@@ -88,7 +88,8 @@ class RatingsDict(BaseList):
 
     @cached_property
     def tmdb_ratings(self):
-        data = self.common_apis.tmdb_api.get_response_json(self.tmdb_type, self.tmdb_id)
+        data = self.common_apis.tmdb_api.get_response_json(
+            self.tmdb_type, self.tmdb_id, cache_refresh=self.cache_refresh == 'force')
         if not data:
             return {}
         try:

@@ -3,6 +3,9 @@ from tmdbhelper.lib.api.request import NoCacheRequestAPI
 from tmdbhelper.lib.api.tmdb.mapping import ItemMapper
 from tmdbhelper.lib.api.api_keys.tmdb import API_KEY
 from jurialmunkey.ftools import cached_property
+from tmdbhelper.lib.files.mcache import MemoryCache
+from hashlib import sha256
+from urllib.parse import parse_qs, urlsplit
 
 
 API_URL = 'https://api.themoviedb.org/3' if not get_setting('use_alternate_api_url') else 'https://api.tmdb.org/3'
@@ -80,9 +83,62 @@ class TMDbAPI(NoCacheRequestAPI):
         kwargs['language'] = self.req_language
         return kwargs
 
-    def get_response_json(self, *args, postdata=None, headers=None, method=None, **kwargs):
+    @cached_property
+    def missing_metadata_cache(self):
+        return MemoryCache('TMDbMissingMetadata')
+
+    def missing_metadata_key(self, request, postdata=None, headers=None, method=None):
+        if method not in (None, 'get') or postdata or headers:
+            return
+        if not request or not request.startswith(f'{self.req_api_url}/'):
+            return
+        url = urlsplit(request)
+        if {'session_id', 'guest_session_id'} & parse_qs(url.query, keep_blank_values=True).keys():
+            return
+        path = url.path[len(urlsplit(self.req_api_url).path) + 1:].split('/')
+        if len(path) < 2 or path[0] not in ('movie', 'tv', 'person', 'collection'):
+            return
+        if not path[1].isascii() or not path[1].isdigit():
+            return
+        tmdbtype = path[0]
+        path = path[2:]
+        if tmdbtype == 'tv' and len(path) >= 2 and path[0] == 'season' and path[1].isascii() and path[1].isdigit():
+            tmdbtype, path = 'season', path[2:]
+            if len(path) >= 2 and path[0] == 'episode' and path[1].isascii() and path[1].isdigit():
+                tmdbtype, path = 'episode', path[2:]
+        if path:
+            endpoint = TMDb.append_to_response_endpoints.get('/'.join(path))
+            if not endpoint or tmdbtype not in endpoint[1]:
+                return
+        return sha256(request.encode('utf-8')).hexdigest()
+
+    def get_simple_api_request(self, request=None, postdata=None, headers=None, method=None):
+        response = super(TMDbAPI, self).get_simple_api_request(request, postdata, headers, method)
+        key = self.missing_metadata_key(request, postdata, headers, method)
+        if not key or response is None:
+            return response
+        if response.status_code == 200:
+            # Clear both properties without a memo lookup, including after forced requests.
+            cache = self.missing_metadata_cache
+            for field in ('expr', 'data'):
+                cache.del_window_property(f'{cache._sc_name}_{field}_{key}')
+        elif response.status_code == 404:
+            try:
+                data = response.json()
+            except ValueError:
+                return response
+            if not isinstance(data, dict) or type(data.get('status_code')) is not int:
+                return response
+            if data['status_code'] in (6, 34) and (data.get('success') is None or data.get('success') is False):
+                self.missing_metadata_cache.set(key, True, cache_minutes=5)
+        return response
+
+    def get_response_json(self, *args, postdata=None, headers=None, method=None, cache_refresh=False, **kwargs):
         kwargs = self.configure_request_kwargs(kwargs)
         requrl = self.get_request_url(*args, **kwargs)
+        key = self.missing_metadata_key(requrl, postdata, headers, method)
+        if key and not cache_refresh and self.missing_metadata_cache.get(key):
+            return {}
         return self.get_api_request_json(requrl, postdata=postdata, headers=headers, method=method)
 
 

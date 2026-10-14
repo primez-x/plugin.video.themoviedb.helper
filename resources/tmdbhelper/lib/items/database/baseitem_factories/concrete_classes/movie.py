@@ -16,7 +16,7 @@ class Movie(MediaItem):
         if not self.online_data_tmdb.get('belongs_to_collection'):
             return {}
         args = ('collection', self.online_data_tmdb['belongs_to_collection']['id'])
-        return self.online_data_func(*args) or {}
+        return self.online_data_func(*args, cache_refresh=self.cache_refresh == 'force') or {}
 
     @cached_property
     def online_data_combined(self):
