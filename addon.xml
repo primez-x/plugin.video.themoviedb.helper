@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addon id="plugin.video.themoviedb.helper"
-version="6.17.3.14"
+version="6.17.3.15"
 name="TMDb Helper"
 provider-name="jurialmunkey">
 <requires>
@@ -46,7 +46,10 @@ provider-name="jurialmunkey">
     <screenshot>resources/screenshot-01.jpg</screenshot>
     <screenshot>resources/screenshot-02.jpg</screenshot>
   </assets>
-  <news>version 6.17.3.14
+  <news>version 6.17.3.15
+- Replace the bundled YouTube player with SmartTube (plugin.video.smarttube). If YouTube was your default player, select SmartTube as the new default.
+
+version 6.17.3.14
 - Build directories faster by reusing settings and skipping widget menu generation.
 - Add per-provider switches for external ratings, with MDbList off by default.
 - Fix database recache actions when library lookups are enabled.

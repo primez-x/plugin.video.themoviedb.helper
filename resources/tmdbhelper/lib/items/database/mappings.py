@@ -614,7 +614,7 @@ class ItemMapperMethods:
                 'release_date': get_blanks_none(video['published_at']),
                 'key': get_blanks_none(video['key']),
                 'content': get_blanks_none(video['type']),
-                'path': f"plugin://plugin.video.youtube/play/?video_id={video['key']}",
+                'path': f"plugin://plugin.video.smarttube/play/?video_id={video['key']}",
             })
         return data
 
